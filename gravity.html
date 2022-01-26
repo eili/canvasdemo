@@ -1,0 +1,146 @@
+<html>
+
+<head>
+
+</head>
+
+<!-- A ball being shot from ground, and falls and bounces back -->
+<body>
+    <canvas id="myCanvas" width="600" height="600" style="border:1px solid #000000;"></canvas>
+
+    <script>
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+        const xSpeed = 1.1; //horizontal velocity
+        var prevT = 0;
+        const g = 10; //gravitation
+        var maxSpeed = 0;
+        var animationId = 0;
+        var vspeed = 0;
+        var bounceSpeed = -0.8;
+        var t1 = 0;
+        var direction = false; //true:falls down, false: bounces up
+        var prevY = 0;
+        var prevDirection = true;
+        const bounceFactor = -0.85; //-1 will give the same speed on bounce
+        const vSpeedFactor = 13; //gain on the vertical speed
+        const vGain = 70; //factor to adapt movement to screen
+        const xGain = 40;
+        const initXPos = 10;
+        const yBottom = 570;
+
+        var gameProps = {
+            timestamp: 0, //Gameloop timestamp. Milliseconds since game start
+            timestampSec: 0, // Time in seconds since start, is reset on event
+            dt: 0 //frame delta time in milliseconds, typically 16ms which gives 60FPS.
+        };
+
+        const t0 = performance.now();
+        var eventTime = t0; //milliseconds, reset on bounce
+
+        function drawText(text) {
+            ctx.font = "30px Arial";
+            ctx.fillText(text, 10, 50);
+        }
+
+        const drawCircle = (ctx, x, y, radius, color) => {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        //Calculates new Y position at time t for falling object in gravity
+        //y0: initial position
+        //v0: initial speed
+        //t: time in seconds
+        const newPosition = (y0, v0, t) => {
+            //https://math24.net/distance-velocity-acceleration.html
+            //a: 9.8, 1/2a: 5
+
+            if (isNaN(t)) {
+                t = 0;
+            }
+            const newPos = y0 + vGain * (vSpeedFactor * v0 * t + 0.5 * g * Math.pow(t, 2));
+            //console.log("y0: " + y0.toFixed(1) + ", v0: " + v0.toFixed(4) + ", t: " + t.toFixed(4) + ", newPos: " + newPos.toFixed(1));
+            return newPos;
+        }
+
+        function physics() {
+            const newX = initXPos + xGain * xSpeed * gameProps.timestamp / 1000;
+
+            const newY = newPosition(yBottom, bounceSpeed, gameProps.timestampSec);
+
+            vspeed = (newY - prevY) / gameProps.dt;
+            direction = vspeed >= 0;
+            prevY = newY;
+
+            //console.log("timestampSec: " + gameProps.timestampSec.toFixed(3) + ", newY: " + newY.toFixed(1) + ", speed: " + vspeed.toFixed(4));
+            ctx.clearRect(0, 0, 600, 600);
+            const color = direction ? "blue" : "red";
+            drawCircle(ctx, newX, newY, 30, color);
+
+            if (newY >= yBottom ) {
+                eventTime = performance.now();
+                bounceSpeed = bounceFactor * vspeed
+            }
+        }
+
+        function gameLoop(timestamp) {
+            const timestampSec = (performance.now() - eventTime) / 1000;
+            const dt = timestamp - prevT;
+            prevT = timestamp;
+
+            gameProps = {
+                timestamp: timestamp,
+                timestampSec: timestampSec,
+                dt: dt
+            };
+
+            physics();
+
+            animationId = requestAnimationFrame(gameLoop);
+
+            if (timestamp > 10000) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function move(timestamp) {
+
+            const now = performance.now();
+            const timestampSec = (now - eventTime) / 1000;
+            timestamp = !timestamp ? 0 : timestamp;
+            const dt = timestamp - prevT;
+            prevT = timestamp;
+            const newX = initXPos + xGain * xSpeed * timestamp / 1000;
+
+            const newY = newPosition(yBottom, bounceSpeed, timestampSec);
+            if (animationId > 0) {
+                vspeed = (newY - prevY) / dt;
+                direction = vspeed >= 0;
+            }
+
+            prevY = newY;
+            //console.log("timestampSec: " + timestampSec.toFixed(3) + ", newY: " + newY.toFixed(1) + ", speed: " + vspeed.toFixed(4));
+            ctx.clearRect(0, 0, 600, 600);
+            const color = direction ? "blue" : "red";
+            drawCircle(ctx, newX, newY, 30, color);
+
+            if (newY > yBottom && direction) {
+                eventTime = performance.now();
+                console.log("Bounce");
+                bounceSpeed = bounceFactor * vspeed
+            }
+
+            animationId = requestAnimationFrame(move);
+            if (timestamp > 10000) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+        // move();
+        gameLoop();
+    </script>
+</body>
+
+</html>

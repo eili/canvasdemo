@@ -1,0 +1,112 @@
+<html>
+
+<head>
+
+</head>
+
+<!-- Planets orbit
+https://pwg.gsfc.nasa.gov/stargaze/Smotion.htm
+r = a(1 – e2)/(1 + e cos φ) -->
+
+<body>
+    <canvas id="myCanvas" width="600" height="600" style="border:1px solid #000000;"></canvas>
+
+    <script>
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+        var prevT = 0;
+        var animationId = 0;
+        var t1 = 0;
+        const yBottom = 570;
+
+        var gameProps = {
+            timestamp: 0, //Gameloop timestamp. Milliseconds since game start
+            timestampSec: 0, // Time in seconds since start, is reset on event
+            dt: 0 //frame delta time in milliseconds, typically 16ms which gives 60FPS.
+        };
+
+        const t0 = performance.now();
+        var eventTime = t0; //milliseconds, reset on bounce
+
+        function drawText(text) {
+            ctx.font = "30px Arial";
+            ctx.fillText(text, 10, 50);
+        }
+
+        const drawCircle = (ctx, x, y, radius, color) => {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+
+        function physics() {
+
+            const a = 25;
+            const e = 0.08;
+
+            const a2 = 35;
+            const e2 = 0.18;
+
+            const phi = gameProps.timestampSec;
+            const cosPhi = Math.cos(phi);
+            const sinPhi = Math.sin(phi);
+            const gain = 5;
+
+            const r = a * (1 - Math.pow(e, 2)) / (1 + e * cosPhi);                //planet
+            const r2 = a2 * (1 - Math.pow(e2, 2)) / (1 + e2 * cosPhi); 
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + e * cosPhi - sinPhi);       //comet
+            //const r = a * (1 - Math.pow(e, 2)) / (sinPhi + e * cosPhi);           //line
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + e * Math.tan(phi));         //cool spiral galaxy!
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + e * Math.tan(phi) / cosPhi);  //butt
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + e * Math.tan(phi) / (e * Math.sin(2 * phi))); //infinity symbol
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + e * Math.tan(phi) / (e * Math.cos(3 * phi))); //sløyfe
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + e * Math.tan(phi) / (e * Math.tan(3 * phi))); //tan lines
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + 0.3 * Math.cos(2 * phi) * (Math.cos(3 * phi) * (Math.cos(4 * phi)))); //amøbe
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + Math.random() * Math.cos(10 * phi)); //snow flake
+            //const r = a * (1 - Math.pow(e, 2)) / (1 + Math.random() * ((Math.sin(phi) * Math.sin(2 * phi))));
+            //x = r × cos( θ )
+            //y = r × sin( θ )
+            const x = 300 + gain * r * cosPhi;
+            const y = 300 + gain * r * sinPhi;
+
+            const x2 = 300 + gain * r2 * cosPhi;
+            const y2 = 300 + gain * r2 * sinPhi;
+
+            //console.log("timestampSec: " + gameProps.timestampSec.toFixed(3) + ", newY: " + newY.toFixed(1) + ", speed: " + vspeed.toFixed(4));
+            //ctx.clearRect(0, 0, 600, 600);
+
+            drawCircle(ctx, 300, 300, 10, "black");
+            drawCircle(ctx, x, y, 3, "blue");
+            drawCircle(ctx, x2, y2, 3, "green");
+
+
+        }
+
+        function gameLoop(timestamp) {
+            const timestampSec = (performance.now() - eventTime) / 1000;
+            const dt = timestamp - prevT;
+            prevT = timestamp;
+
+            gameProps = {
+                timestamp: timestamp,
+                timestampSec: timestampSec,
+                dt: dt
+            };
+
+            physics();
+
+            animationId = requestAnimationFrame(gameLoop);
+
+            if (timestamp > 60000) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+
+        gameLoop();
+    </script>
+</body>
+
+</html>

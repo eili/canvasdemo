@@ -1,0 +1,374 @@
+<html>
+
+<head>
+    <script src="./complex.js" type="text/javascript"></script>
+</head>
+
+<!-- Julia set
+https://en.wikipedia.org/wiki/Julia_set
+ -->
+
+<body>
+    <canvas id="myCanvas" width="300" height="300" style="border:1px solid #000000; z-index: 100;"></canvas>
+    <!-- position: absolute; left: 0; top: 0; -->
+
+    <script>
+        
+        var domcanvas = document.getElementById("myCanvas");
+        var domctx = domcanvas.getContext("2d");
+        const boundingRect = domcanvas.getBoundingClientRect();
+        console.log(boundingRect);
+        // const canvasWidth = 600;
+        // const canvasHeight = 600;
+
+
+        var canvas2 = document.createElement('canvas')
+        var ctx2 = canvas2.getContext('2d');
+        // ctx2.fillStyle = 'yellow';
+        // ctx2.fillRect(50, 50, 100, 50)
+
+        /* render virtual canvases on DOM canvas */
+        // domctx.drawImage(canvas, 0, 0, canvasWidth, canvasHeight);
+        // domctx.drawImage(canvas2, 0, 0, canvasWidth, canvasHeight);
+
+
+        var prevT = 0;
+        var animationId = 0;
+        var t1 = 0;
+        const yBottom = 570;
+        var max_iter = 60; // 220;
+
+        const initialWidth = 4; //Mandlebrot with: -2 to 2 (x-axis)
+
+        var zoom = boundingRect.width / initialWidth;
+        var offsetX = -2.5;
+        var offsetY = -2;
+
+        var mouseInput = {
+            x0: -1,
+            y0: -1,
+            x1: -1,
+            y1: -1,
+            button: -1, //left click (normal):0, right click:2 (middle:1)
+            isDown: false,
+            capturing: false,
+            width: function () {
+                return this.x1 - this.x0;
+            },
+            height: function () {
+                return this.y1 - this.y0;
+            }
+        }
+
+        var gameProps = {
+            timestamp: 0, //Gameloop timestamp. Milliseconds since game start
+            timestampSec: 0, // Time in seconds since start, is reset on event
+            dt: 0 //frame delta time in milliseconds, typically 16ms which gives 60FPS.
+        };
+
+
+        const juliaset = (C, R) => {
+            var n = 0;
+            var g = Math.pow(C.x, 2) + Math.pow(C.y, 2);
+            const rr = geometricLength(matPow2(R));
+console.log(rr);
+            while (g <= rr && n < max_iter) {
+                xtmp = Math.pow(C.x, 2) - Math.pow(C.y, 2);
+                C.y = 2 * C.x * C.y + R.y;
+                C.x = xtmp + R.x;
+
+                g = Math.pow(C.x, 2) + Math.pow(C.y, 2);
+                n++;
+
+                /*
+ xtemp = zx * zx - zy * zy
+        zy = 2 * zx * zy  + cy 
+        zx = xtemp + cx
+                */
+
+            }
+            // console.log(n);
+            return n;
+        }
+        const t0 = performance.now();
+        var eventTime = t0; //milliseconds, reset on bounce
+
+        // function drawText(text) {
+        //     ctx.font = "30px Arial";
+        //     ctx.fillText(text, 10, 50);
+        // }
+
+        // const drawCircle = (ctx, x, y, radius, color) => {
+        //     ctx.fillStyle = color;
+        //     ctx.beginPath();
+        //     ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        //     ctx.fill();
+        // }
+
+        const mandelColor = (m) => {
+            //const t = 255; //green
+            if (m === max_iter)
+                return "#000000";
+
+            // const cmax = 255;
+            // const factor = Math.round(cmax / max_iter);
+            // var cc = Math.round(cmax - factor * m);
+            // cc *= 256 * cmax; //shift to red
+            // const c = ('#' + cc.toString(16).padStart(6, '0'));
+            // return c;
+            //Alternative color encoding...
+            if (m === max_iter)
+                return "black";
+            else if (m > 4)
+                return "green";
+            else if (m > 2)
+                return "yellow";
+            return "red";
+        }
+
+        //A user clicks in the canvas to zoom in on a particular area
+        //point is in canvas coordinates
+        //this function translates to "mandelbrot" point
+        //that is, in original zoom and offset: (-2, -2, 1, 1)
+        //ex. canvas x=0: mandel = -2, 
+        const canvasPoint2MandelPoint = (S, zoom) => {
+            const x = offsetX + S.x / zoom;
+            const y = offsetY + S.y / zoom;
+            return { x: x, y: y };
+        }
+
+        //S1: Start point (complex number, having x and y as props), S2: end point
+        function drawJuliaset(S1, S2) {
+
+            console.log("Start...");
+            domctx.clearRect(0, 0, boundingRect.width, boundingRect.height);
+            const R = {x:-0.8, y:0.15};
+
+
+            for (var x = 0; x < boundingRect.width; x++) {
+                for (var y = 0; y < boundingRect.height; y++) {
+                    //RE_START + (x / WIDTH) * (RE_END - RE_START)
+                    //IM_START + (y / HEIGHT) * (IM_END - IM_START)
+                    const a = S1.x + (x / boundingRect.width) * (S2.x - S1.x);
+                    const b = S1.y + (y / boundingRect.height) * (S2.y - S1.y);
+                    const m = juliaset({ x: a, y: b }, R);
+                    var color = mandelColor(m);
+                    //console.log(x + "," + y + ": " + m);
+                    domctx.fillStyle = color;
+                    domctx.fillRect(x, y, 1, 1);
+                }
+                // console.log(x + " of " + width);
+            }
+
+            console.log("Finished...");
+        }
+
+        window.addEventListener("keydown", doKeyDown, true);
+
+        domcanvas.onmousedown = (ev) => {
+
+            mouseInput.button = ev.button;
+            //https://stackoverflow.com/questions/55677/how-do-i-get-the-coordinates-of-a-mouse-click-on-a-canvas-element
+            mouseInput.x0 = ev.x - boundingRect.left;
+            mouseInput.y0 = ev.y - boundingRect.top;
+            mouseInput.isDown = true;
+            console.log(ev.x + ", " + ev.y);
+
+            // ctx2.clearRect(0, 0, boundingRect.width, boundingRect.height);
+            // ctx2.fillStyle = 'green';
+            // ctx2.fillRect(mouseInput.x0, mouseInput.y0, 10, 10)
+            // domctx.drawImage(canvas2, 0, 0, boundingRect.width, boundingRect.height);
+        }
+
+        domcanvas.onmouseup = (ev) => {
+            mouseInput.isDown = false;
+            mouseInput.x1 = ev.x - boundingRect.left;
+            mouseInput.y1 = ev.y - boundingRect.top;
+
+            if (mouseInput.capturing && mouseInput.x0 > 0 && mouseInput.button === 0 && mouseInput.width() > 10) {
+                mouseInput.capturing = false;
+
+                const mouseWidth = mouseInput.width();
+                console.log(mouseInput);
+                // console.log(mouseWidth + ", " + mouseInput.height());
+
+                // ctx2.strokeStyle = "white";
+                // ctx2.rect(mouseInput.x0, mouseInput.y0, mouseWidth, mouseInput.height());
+                // ctx2.stroke();
+                // domctx.drawImage(canvas2, 0, 0, canvasWidth, canvasHeight);
+                // max_iter = 40;                
+
+                var S1 = canvasPoint2MandelPoint({ x: mouseInput.x0, y: mouseInput.y0 }, zoom);
+                var S2 = canvasPoint2MandelPoint({ x: mouseInput.x1, y: mouseInput.y0 + mouseWidth }, zoom);
+                offsetX = S1.x;
+                offsetY = S1.y;
+                console.log("zoom 0: " + zoom);
+                zoom = boundingRect.width / (S2.x - S1.x);
+                console.log("zoom 1: " + zoom);
+                console.log(S1);
+                console.log(S2);
+                drawJuliaset(S1, S2);
+            }
+
+        }
+
+        domcanvas.onmousemove = (ev) => {
+            if (!mouseInput.isDown) {
+                mouseInput.capturing = false;
+                mouseInput.x0 = -1;
+                return;
+            } else {
+                // mouseInput.x1 = ev.x;
+                // mouseInput.y1 = ev.y;
+                mouseInput.capturing = true;
+
+                // ctx2.clearRect(0, 0, canvasWidth, canvasHeight);
+                // ctx2.strokeStyle = "blue";
+                // ctx2.rect(mouseInput.x0, mouseInput.y0, mouseInput.width(), mouseInput.height());
+                // ctx2.stroke();
+                // domctx.drawImage(canvas2, 0, 0, canvasWidth, canvasHeight);
+
+
+            }
+            //console.log(ev.x + ", " + ev.y);            
+        }
+
+        function doKeyDown(e) {
+            console.log(e.keyCode);
+
+            if (e.keyCode < 37 || e.keyCode > 40) {
+                return;
+            }
+
+            //We now handle only right click mouse events, to mark position
+            // if (mouseInput.button !== 2) {
+            //     return;
+            // }
+
+            //find clicked point in mandelbrot coordinates
+            var A0 = canvasPoint2MandelPoint({ x: mouseInput.x0, y: mouseInput.y0 }, zoom);
+            //var A0 = canvasPoint2MandelPoint({ x: 300, y: 300 }, zoom);
+            var A1 = canvasPoint2MandelPoint({ x: 0, y: 0 }, zoom);
+            var A2 = canvasPoint2MandelPoint({ x: boundingRect.width, y: boundingRect.height }, zoom);
+            var m1width = A2.x - A1.x;
+            console.log("m1width 1: " + m1width);
+
+            var updateOffset = false;
+            if (e.keyCode === 38) {
+                //up arrow: zoom in
+                m1width = m1width / 2;
+                updateOffset = true;
+                // max_iter += 20;
+            }
+            if (e.keyCode === 40) {
+                //down arrow: zoom in                
+                m1width *= 2;
+                updateOffset = true;
+                // max_iter -= 20;
+            }
+            console.log("m1width 2: " + m1width);
+
+            zoom = boundingRect.width / m1width;
+            if (updateOffset === true) {
+                offsetX = A0.x - m1width / 2;
+                offsetY = A0.y - m1width / 2;
+            }
+
+
+            if (e.keyCode === 39) {
+                //right arrow: pan right                
+                offsetX += m1width / 10;
+            }
+            if (e.keyCode === 37) {
+                //left arrow: pan left                
+                offsetX -= m1width / 10;
+            }
+
+            const S1 = { x: offsetX, y: offsetY };
+            const S2 = { x: offsetX + m1width, y: offsetY + m1width };
+            console.log(S1);
+            console.log(S2);
+            drawJuliaset(S1, S2);
+        }
+
+        function gameLoop(timestamp) {
+            const timestampSec = (performance.now() - eventTime) / 1000;
+            const dt = timestamp - prevT;
+            prevT = timestamp;
+
+            gameProps = {
+                timestamp: timestamp,
+                timestampSec: timestampSec,
+                dt: dt
+            };
+
+            var re_start = -1.7;
+            var re_end = 0.8;
+            var im_start = -1.3;
+            var im_end = 1.3;
+
+            re_start = offsetX;
+            re_end = offsetX + initialWidth;
+            im_start = offsetY;
+            im_end = offsetY + initialWidth;
+            // ctx.clearRect(0, 0, 600, 600);
+            drawJuliaset({ x: re_start, y: im_start }, { x: re_end, y: im_end });
+            // console.log(max_iter);            
+            // max_iter += 2;
+
+
+            animationId = requestAnimationFrame(gameLoop);
+
+            if (timestamp > 600 || max_iter > 30) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        gameLoop();
+        var re_start = -1.7;
+        var re_end = 0.8;
+        var im_start = -1.3;
+        var im_end = 1.3;
+
+
+
+        // re_start = -0.2;
+        // re_end = 0.6;
+        // im_start = 0;
+        // im_end = 0.8;
+
+        // re_start = 0.2;
+        // re_end = 0.5;
+        // im_start = 0.2;
+        // im_end = 0.5;
+
+        // re_start = 0.35;
+        // re_end = 0.45;
+        // im_start = 0.3;
+        // im_end = 0.4;
+
+        // re_start = 0.36;
+        // re_end = 0.4;
+        // im_start = 0.28;
+        // im_end = 0.33;
+
+
+        // drawMandelbrot({ x: re_start, y: im_start }, { x: re_end, y: im_end });
+
+        var m = 79;
+        const cmax = 255;
+        const factor = Math.round(cmax / 80);
+        var cc = Math.round(cmax - factor * m);
+        cc = factor * m;
+        // cc *= 5*255*255;
+        console.log(factor + ", " + cc);
+        const w = ('#' + cc.toString(16).padStart(6, '0'));
+        console.log(w);
+
+        // ctx.fillStyle = w;
+        // ctx.fillRect(10, 10, 200, 200);
+
+    </script>
+</body>
+
+</html>

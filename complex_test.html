@@ -1,0 +1,43 @@
+<html>
+
+<head>
+  <script src="./complex.js" type="text/javascript"></script>
+</head>
+
+<body>
+  <script>
+    console.log("Complex number test");
+
+    const test_complexLen = () => {
+      const X1 = { x: 4, y: 5 };
+      const len = geometricLength(X1);
+      console.log("test complex Len");
+      console.log(X1)
+      console.log(len);
+    }
+
+    const test_complexMul = () => {
+      const X1 = { x: 3, y: 2 };
+      const X2 = { x: 1, y: 7 };
+      const result = matMul(X1, X2);
+      console.log("test complex Multiplication");
+      console.log(X1)
+      console.log(X2)
+      console.log(result);
+    }
+
+    const test_complexDiv = () => {
+      const X1 = { x: 2, y: 3 };
+      const X2 = { x: 4, y: 5 };
+      const result = matDivision(X1, X2);
+      console.log("test complex Division");
+      console.log(X1)
+      console.log(X2)
+      console.log(result);
+    }
+
+    // test_complexLen();
+    // test_complexMul();
+    test_complexDiv();
+</script>
+</body>
